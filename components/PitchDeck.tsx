@@ -19,12 +19,15 @@ export default function PitchDeck() {
   useEffect(() => {
     const initSession = async () => {
       const stored = sessionStorage.getItem("pawme_session_id");
+      const params = new URLSearchParams(window.location.search);
+      const shareId = params.get("s") || params.get("to") || undefined;
       const res = await fetch("/api/track/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId: stored || undefined,
           referrer: document.referrer,
+          shareId,
         }),
       });
       const data = await res.json();
