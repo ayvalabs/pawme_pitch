@@ -84,7 +84,7 @@ export const deckSlides: React.ReactNode[] = [
       </div>
     </div>
     <div style={{ position: "absolute", bottom: 22, left: 0, right: 0, textAlign: "center", color: "#C9B8AC", fontSize: 11, zIndex: 2, letterSpacing: ".3px" }}>
-      Confidential · Prepared for ARKN Ventures · June 2026
+      Confidential · June 2026
     </div>
   </Slide>,
 
@@ -173,7 +173,7 @@ export const deckSlides: React.ReactNode[] = [
         </div>
       </div>
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 46, margin: "22px 0" }}>
-        {["android", "apple", "linux", "huggingface"].map((l) => (
+        {["android", "linux", "huggingface"].map((l) => (
           <img key={l} src={`/img/logos/${l}.svg`} alt={l} style={{ height: 28, opacity: 0.55 }} />
         ))}
       </div>
