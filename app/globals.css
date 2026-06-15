@@ -17,7 +17,6 @@
 
 html, body {
   height: 100%;
-  overflow: hidden;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
@@ -37,4 +36,62 @@ html, body {
 :-webkit-full-screen {
   background: #0a0a14;
 }
+
+/* ===================== OpenPaw deck (coral theme) ===================== */
+.deckroot{
+  --ink:#241A15; --coral:#F47B5A; --deep:#C8553D; --sand:#F7EFE8;
+  --paper:#FFFFFF; --sub:#5C5048; --muted:#9A8C82;
+  --head:"Trebuchet MS","Segoe UI",system-ui,sans-serif;
+  --body:-apple-system,"Helvetica Neue",system-ui,sans-serif;
+}
+.deck{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#0a0a0a}
+.stage{width:1280px;height:720px;position:relative;transform-origin:center center;flex:none}
+.nav-zone{position:fixed;top:0;bottom:0;width:18%;z-index:50;cursor:pointer}
+.nav-zone.left{left:0}.nav-zone.right{right:0}
+.hud{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:60;
+  display:flex;gap:14px;align-items:center;color:#fff;font-family:var(--body);font-size:12px;
+  background:rgba(0,0,0,.45);padding:6px 14px;border-radius:999px;opacity:0;transition:opacity .25s}
+.deck:hover .hud{opacity:.85}
+.hud b{color:var(--coral)}
+.hud button{background:none;border:none;color:#fff;cursor:pointer;font-size:13px;opacity:.8}
+.hud button:hover{opacity:1}
+.progress{position:fixed;top:0;left:0;height:3px;background:var(--coral);z-index:60;transition:width .25s}
+
+.slide{position:absolute;inset:0;background:var(--paper);padding:48px 56px;overflow:hidden;font-family:var(--body);color:var(--ink)}
+.slide.dark{background:var(--ink);color:#fff}
+.kicker{font-family:var(--head);font-weight:700;font-size:15px;letter-spacing:2px;text-transform:uppercase;color:var(--coral)}
+.title{font-family:var(--head);font-weight:700;font-size:38px;color:var(--ink);line-height:1.12;margin-top:8px}
+.dark .title{color:#fff}
+.note{font-family:var(--body);font-style:italic;color:var(--deep);font-size:15px;text-align:center}
+.footer{position:absolute;left:56px;right:56px;bottom:26px;display:flex;justify-content:space-between;align-items:center;
+  font-family:var(--head);font-size:12px;color:var(--muted)}
+.footer .brand{display:flex;gap:8px;align-items:center;font-weight:700}
+.footer img{width:18px;height:18px}
+.row{display:flex;gap:18px}
+.card{background:var(--sand);border-radius:16px;padding:22px 24px}
+.card.coral{background:var(--coral);color:#fff}
+.card.dark{background:var(--ink);color:#fff}
+.grow{flex:1}
+.center{text-align:center}
+.stat{font-family:var(--head);font-weight:700;color:var(--coral);line-height:1}
+.chev{color:var(--coral);font-size:34px;align-self:center;font-weight:700}
+.hero-video{width:1060px;max-width:90%;border-radius:18px;display:block;margin:0 auto;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.toprule{position:absolute;top:0;left:0;right:0;height:8px;background:var(--coral)}
+.botrule{position:absolute;bottom:0;left:0;right:0;height:8px;background:var(--coral)}
+.bar-row{margin-bottom:12px}
+.bar-row .bl{display:flex;justify-content:space-between;font-size:13px;color:var(--ink)}
+.bar-row .bl b{color:var(--deep);font-family:var(--head)}
+.track{height:11px;background:var(--sand);border-radius:6px;margin-top:5px;overflow:hidden}
+.fill{height:100%;background:var(--coral);border-radius:6px}
+.avatar{width:120px;height:120px;border-radius:50%;object-fit:cover;border:3px solid var(--coral);display:block;margin:0 auto}
+.avatar-paw{width:120px;height:120px;border-radius:50%;border:3px solid var(--coral);display:flex;align-items:center;justify-content:center;margin:0 auto;background:var(--sand)}
+.avatar-paw img{width:64px;height:64px}
+.phone{height:300px;border-radius:20px;border:6px solid var(--ink);display:block}
+.tl{position:relative;margin:30px 10px 0}
+.tl-line{position:absolute;top:34px;left:2%;right:2%;height:3px;background:var(--coral)}
+.tl-nodes{display:flex;justify-content:space-between;position:relative}
+.tl-node{width:15%;text-align:center}
+.tl-date{font-family:var(--head);font-weight:700;color:var(--deep);font-size:14px}
+.tl-dot{width:16px;height:16px;border-radius:50%;background:var(--coral);border:3px solid #fff;margin:10px auto}
+.tl-label{font-size:11px;color:var(--ink);line-height:1.25}
 

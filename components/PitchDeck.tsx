@@ -1,240 +1,174 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { slides, TOTAL_SLIDES } from "@/lib/slides";
-import SlideRenderer from "@/components/SlideRenderer";
-import ContactSlide from "@/components/ContactSlide";
+import { deckSlides } from "@/components/DeckSlides";
+
+const TOTAL = deckSlides.length;
 
 export default function PitchDeck() {
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [i, setI] = useState(0);
+  const [scale, setScale] = useState(1);
+  const [started, setStarted] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showEnterPrompt, setShowEnterPrompt] = useState(true);
-  const [transitioning, setTransitioning] = useState(false);
+  const [rotate, setRotate] = useState(false);
+  const enter = useRef(0);
+  const cur = useRef(0);
+  const touch = useRef<number | null>(null);
 
-  const slideStartTime = useRef<number>(Date.now());
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Start session on mount
+  // Start session (geo + shareId attribution handled server-side)
   useEffect(() => {
-    const initSession = async () => {
-      const stored = sessionStorage.getItem("pawme_session_id");
-      const params = new URLSearchParams(window.location.search);
-      const shareId = params.get("s") || params.get("to") || undefined;
-      const res = await fetch("/api/track/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: stored || undefined,
-          referrer: document.referrer,
-          shareId,
-        }),
-      });
-      const data = await res.json();
-      if (data.sessionId) {
-        sessionStorage.setItem("pawme_session_id", data.sessionId);
-        setSessionId(data.sessionId);
-      }
-    };
-    initSession();
-  }, []);
-
-  const trackSlide = useCallback(
-    async (slideId: number, timeSpentSeconds: number) => {
-      if (!sessionId) return;
-      await fetch("/api/track/slide", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, slideId, timeSpentSeconds }),
-      });
-    },
-    [sessionId]
-  );
-
-  const goToSlide = useCallback(
-    async (index: number) => {
-      if (transitioning) return;
-      const elapsed = (Date.now() - slideStartTime.current) / 1000;
-      await trackSlide(currentSlide + 1, Math.round(elapsed));
-
-      if (index >= TOTAL_SLIDES) {
-        // mark complete
-        if (sessionId) {
-          await fetch("/api/track/complete", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessionId }),
-          });
+    (async () => {
+      try {
+        const stored = sessionStorage.getItem("openpaw_session_id");
+        const params = new URLSearchParams(window.location.search);
+        const shareId = params.get("s") || params.get("to") || undefined;
+        const res = await fetch("/api/track/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: stored || undefined, referrer: document.referrer, shareId }),
+        });
+        const data = await res.json();
+        if (data.sessionId) {
+          sessionStorage.setItem("openpaw_session_id", data.sessionId);
+          setSessionId(data.sessionId);
         }
-        return;
+      } catch {
+        // tracking is best-effort; never block the deck
       }
-
-      setTransitioning(true);
-      setTimeout(() => {
-        setCurrentSlide(index);
-        slideStartTime.current = Date.now();
-        setTransitioning(false);
-      }, 300);
-    },
-    [currentSlide, transitioning, trackSlide, sessionId]
-  );
-
-  const next = useCallback(() => {
-    if (currentSlide < TOTAL_SLIDES - 1) goToSlide(currentSlide + 1);
-  }, [currentSlide, goToSlide]);
-
-  const prev = useCallback(() => {
-    if (currentSlide > 0) goToSlide(currentSlide - 1);
-  }, [currentSlide, goToSlide]);
-
-  // Keyboard navigation
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " ") {
-        e.preventDefault();
-        next();
-      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-        e.preventDefault();
-        prev();
-      } else if (e.key === "Escape") {
-        setShowEnterPrompt(false);
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [next, prev]);
-
-  // Touch / swipe
-  const touchStart = useRef<number | null>(null);
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStart.current = e.touches[0].clientX;
-  };
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStart.current === null) return;
-    const diff = touchStart.current - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) next();
-      else prev();
-    }
-    touchStart.current = null;
-  };
-
-  const enterFullscreen = async () => {
-    try {
-      await containerRef.current?.requestFullscreen();
-      setIsFullscreen(true);
-    } catch {
-      setIsFullscreen(true);
-    }
-    setShowEnterPrompt(false);
-    slideStartTime.current = Date.now();
-  };
-
-  useEffect(() => {
-    const onFSChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener("fullscreenchange", onFSChange);
-    return () => document.removeEventListener("fullscreenchange", onFSChange);
+    })();
   }, []);
 
-  const slide = slides[currentSlide];
-  const isLastSlide = currentSlide === TOTAL_SLIDES - 1;
-  const progress = ((currentSlide + 1) / TOTAL_SLIDES) * 100;
+  // Scale the fixed 1280×720 stage to fit the viewport + detect portrait phones
+  useEffect(() => {
+    const fit = () => {
+      setScale(Math.min(window.innerWidth / 1280, window.innerHeight / 720));
+      setRotate(window.innerWidth < window.innerHeight && window.innerWidth < 820);
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    window.addEventListener("orientationchange", fit);
+    return () => {
+      window.removeEventListener("resize", fit);
+      window.removeEventListener("orientationchange", fit);
+    };
+  }, []);
+
+  // fire-and-forget — tracking never blocks navigation
+  const trackSlide = useCallback((slideId: number, secs: number) => {
+    if (!sessionId) return;
+    fetch("/api/track/slide", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId, slideId, timeSpentSeconds: secs }),
+    }).catch(() => {});
+  }, [sessionId]);
+
+  const go = useCallback((d: number) => {
+    setI((p) => Math.min(TOTAL - 1, Math.max(0, p + d)));
+  }, []);
+
+  // Log time on the slide you just left + completion on the last slide
+  useEffect(() => {
+    const now = Date.now();
+    if (enter.current) trackSlide(cur.current + 1, Math.round((now - enter.current) / 1000));
+    enter.current = now;
+    cur.current = i;
+    if (i === TOTAL - 1 && sessionId) {
+      fetch("/api/track/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      }).catch(() => {});
+    }
+  }, [i, trackSlide, sessionId]);
+
+  // Keyboard
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (["ArrowRight", "ArrowDown", " ", "PageDown"].includes(e.key)) { e.preventDefault(); go(1); }
+      else if (["ArrowLeft", "ArrowUp", "PageUp"].includes(e.key)) { e.preventDefault(); go(-1); }
+      else if (e.key === "Home") setI(0);
+      else if (e.key === "End") setI(TOTAL - 1);
+      else if (e.key === "f") document.documentElement.requestFullscreen?.();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [go]);
+
+  // Flush dwell time when the tab is hidden / closed
+  useEffect(() => {
+    const flush = () => {
+      if (enter.current) {
+        trackSlide(cur.current + 1, Math.round((Date.now() - enter.current) / 1000));
+        enter.current = Date.now();
+      }
+    };
+    const onVis = () => { if (document.visibilityState === "hidden") flush(); };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("beforeunload", flush);
+    };
+  }, [trackSlide]);
+
+  const rotateOverlay = rotate ? (
+    <div className="deckroot" style={{ position: "fixed", inset: 0, zIndex: 200, background: "#241A15", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 36px" }}>
+      <div style={{ fontSize: 60, lineHeight: 1 }}>📱</div>
+      <div style={{ color: "#F47B5A", fontSize: 30, marginTop: 8 }}>↻</div>
+      <div style={{ fontFamily: "var(--head)", fontWeight: 700, color: "#fff", fontSize: 25, marginTop: 14 }}>Rotate your phone</div>
+      <div style={{ color: "#C9B8AC", fontSize: 15, marginTop: 10, maxWidth: 300, lineHeight: 1.5 }}>
+        This pitch deck is best viewed in <b style={{ color: "#fff" }}>landscape</b> — turn your device sideways.
+      </div>
+    </div>
+  ) : null;
+
+  if (!started) {
+    return (
+      <div className="deckroot deck" style={{ background: "#241A15" }}>
+        {rotateOverlay}
+        <div style={{ textAlign: "center" }}>
+          <img src="/img/paw.png" alt="PawMe" style={{ width: 84, height: 84, margin: "0 auto 18px" }} />
+          <div style={{ fontFamily: "var(--head)", fontWeight: 700, color: "#fff", fontSize: 44 }}>PawMe</div>
+          <div style={{ color: "#C9B8AC", marginTop: 6, fontSize: 16 }}>Seed deck · 2026</div>
+          <button
+            onClick={() => {
+              setStarted(true);
+              enter.current = Date.now();
+              document.documentElement.requestFullscreen?.().catch(() => {});
+            }}
+            style={{ marginTop: 28, background: "#F47B5A", color: "#fff", border: "none", borderRadius: 999, padding: "14px 34px", fontSize: 17, fontWeight: 700, cursor: "pointer", fontFamily: "var(--head)" }}
+          >
+            View pitch deck
+          </button>
+          <div style={{ color: "#8C7C70", marginTop: 18, fontSize: 13 }}>Arrow keys, click the sides, or swipe</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
-      ref={containerRef}
-      className="fixed inset-0 bg-[#0a0a14] overflow-hidden select-none"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      className="deckroot deck"
+      onTouchStart={(e) => (touch.current = e.touches[0].clientX)}
+      onTouchEnd={(e) => {
+        if (touch.current === null) return;
+        const d = touch.current - e.changedTouches[0].clientX;
+        if (Math.abs(d) > 50) go(d > 0 ? 1 : -1);
+        touch.current = null;
+      }}
     >
-      {/* Enter fullscreen overlay */}
-      {showEnterPrompt && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0a0a14]">
-          <div className="text-center px-8">
-            <div className="mb-6 text-6xl">🐾</div>
-            <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">
-              PawMe
-            </h1>
-            <p className="text-slate-400 text-lg mb-10">
-              Seed Funding Deck 2026
-            </p>
-            <button
-              onClick={enterFullscreen}
-              className="bg-amber-500 hover:bg-amber-400 text-black font-semibold px-10 py-4 rounded-full text-lg transition-all duration-200 shadow-lg shadow-amber-500/30 hover:shadow-amber-400/40 hover:scale-105"
-            >
-              View Pitch Deck
-            </button>
-            <p className="text-slate-600 text-sm mt-6">
-              Use arrow keys or click to navigate
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Slide content */}
-      <div
-        className={`absolute inset-0 transition-opacity duration-300 ${
-          transitioning ? "opacity-0" : "opacity-100"
-        }`}
-      >
-        {isLastSlide ? (
-          <ContactSlide slide={slide} />
-        ) : (
-          <SlideRenderer slide={slide} slideIndex={currentSlide} />
-        )}
+      {rotateOverlay}
+      <div className="progress" style={{ width: `${((i + 1) / TOTAL) * 100}%` }} />
+      <div className="nav-zone left" onClick={() => go(-1)} />
+      <div className="nav-zone right" onClick={() => go(1)} />
+      <div className="stage" style={{ transform: `scale(${scale})` }}>{deckSlides[i]}</div>
+      <div className="hud">
+        <button onClick={() => go(-1)}>‹ Prev</button>
+        <span><b>{i + 1}</b> / {TOTAL}</span>
+        <button onClick={() => go(1)}>Next ›</button>
+        <button onClick={() => document.documentElement.requestFullscreen?.()}>⤢ Full</button>
       </div>
-
-      {/* Progress bar */}
-      <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10 z-40">
-        <div
-          className="h-full bg-amber-500 transition-all duration-500"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
-      {/* Slide counter */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2">
-        {slides.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => goToSlide(i)}
-            className={`transition-all duration-200 rounded-full ${
-              i === currentSlide
-                ? "w-6 h-2 bg-amber-500"
-                : "w-2 h-2 bg-white/30 hover:bg-white/60"
-            }`}
-          />
-        ))}
-      </div>
-
-      {/* Nav arrows */}
-      {!showEnterPrompt && (
-        <>
-          <button
-            onClick={prev}
-            disabled={currentSlide === 0}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-40 w-12 h-12 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-all disabled:opacity-0 text-white text-xl"
-          >
-            ‹
-          </button>
-          <button
-            onClick={next}
-            disabled={currentSlide === TOTAL_SLIDES - 1}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-40 w-12 h-12 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-all disabled:opacity-0 text-white text-xl"
-          >
-            ›
-          </button>
-        </>
-      )}
-
-      {/* Slide number top-right */}
-      {!showEnterPrompt && (
-        <div className="absolute top-4 right-6 z-40 text-white/40 text-sm font-mono">
-          {currentSlide + 1} / {TOTAL_SLIDES}
-        </div>
-      )}
     </div>
   );
 }
